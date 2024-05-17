@@ -1,27 +1,27 @@
 # Required packages
-invisible(lapply(c('foreign','dplyr','mice','miceadds','gamlss','rms'), 
+invisible(lapply(c('foreign','dplyr','mice'), # 'gamlss','rms' later cause MASS messes with select
                  require, character.only = TRUE));
 
-datapath <- './Data'
+datapath <- '../Data'
 
 readsav <- function(file, summary=FALSE) {
   d <- foreign::read.spss(file.path(datapath, file), use.value.labels = TRUE, to.data.frame = TRUE)
   # labels <- attr(d, 'variable.labels')
   # make sure missing are read in correctly
   for (col in d) { if (max(as.numeric(col), na.rm=TRUE) == 999) { d[col == 999,] <- NA } }
-  if (summary) { print(summary(d)) } 
+  if (summary) { print(summary(d)) }
   return(d)
 }
 # LOAD DATA ====================================================================
 
 hrt <- readsav('CHILDMRICARDIO_standardizedbsa_12102018.sav') %>%
-  select(IDC,   'age_mri' = 'agechildMRI9', 
+  select(IDC,   'age_mri' = 'agechildMRI9',
              'weight_mri' = 'weightMRI9',
                 'BSA_mri' = 'BSAchild9', # 1286 missing
           # _without outliers 12-10-2018 (all below)
-         'heart_rate_mri' = 'HeartRate.MRI9', # 1289 missing 
+         'heart_rate_mri' = 'HeartRate.MRI9', # 1289 missing
 'LV_end_diastolic_volume' = 'LVEDVolume.MRI9', # 1288 missing # + bsa zscore
- 'LV_end_systolic_volume' = 'LVESVolume.MRI9', # 1288 missing 
+ 'LV_end_systolic_volume' = 'LVESVolume.MRI9', # 1288 missing
        'LV_stroke_volume' = 'LVStrokeVolume.MRI9', # 1286 missing
    'LV_ejection_fraction' = 'LVEjectionfraction.MRI9', # 1287 missing # + bsa zscore
                 'LV_mass' = 'Mass.MRI9', # 1288 missing # + bsa zscore # LV???
@@ -35,7 +35,7 @@ hrt <- readsav('CHILDMRICARDIO_standardizedbsa_12102018.sav') %>%
 
 # ------------------------------------------------------------------------------
 
-# Other cardiac MRI dataset (?) 
+# Other cardiac MRI dataset (?)
 # hrt2 <- readsav('CHILDMRICARDIO9_08122016.sav') %>%
    # Heart rate intern & PIA (with outliers?)
    # LV end-diastolic volume: clean (without outliers), PIA, intern
@@ -59,7 +59,7 @@ hrt <- readsav('CHILDMRICARDIO_standardizedbsa_12102018.sav') %>%
 # General data
 gen <- readsav('CHILD-ALLGENERALDATA_15012024.sav') %>%
   # Only select children alive at birth
-  filter(OUTCOMECHILD == 'live birth') %>% 
+  filter(OUTCOMECHILD == 'live birth') %>%
   # Combine repeated measures
   mutate(mom_education = case_when(!is.na(EDUCM5) ~ EDUCM5, # GR1075 Education mother based on 5/6 year questionnaire
                                    !is.na(EDUCM3) ~ EDUCM3, # GR1065 Education mother based on 36 months questionnaire
@@ -79,25 +79,25 @@ gen <- readsav('CHILD-ALLGENERALDATA_15012024.sav') %>%
                                       INCOME == '2000-2200 euro' ~ '€ 2000-2400',
                                       INCOME == '> 2200 euro' ~ '€ 2800-3200'),
                                    levels=levels(INCOME5) # maintain the original order
-                                   )) %>% 
+                                   )) %>%
   # Select and rename variables
   select(IDC, IDM, MOTHER, # for sibling detection
          mom_education, dad_education, marital_status, household_income,
                   'sex' = 'GENDER', # Gender live birth corrected 10-12-2014
             'ethnicity' = 'ETHNINFv2', # CBS ethnicity child update after focus@5
-              'mom_age' = 'AGE_M_v2', # Age mother at intake corrected 13-4-2016 
+              'mom_age' = 'AGE_M_v2', # Age mother at intake corrected 13-4-2016
 'mom_BMI_pre_pregnancy' = 'BMI_0', # bmi before pregnancy
-               'parity' = 'PARITY', 
+               'parity' = 'PARITY',
                  'twin' = 'TWIN',
 'birth_gestational_age' = 'GESTBIR',
          'birth_weight' = 'WEIGHT')
 # ------------------------------------------------------------------------------
-# Prenatal maternal health and lifestyle 
+# Prenatal maternal health and lifestyle
 
 maternal_smoking <- readsav('MATERNALSMOKING_22112016.sav') %>%
   # Select and rename variables
   select('IDM' = 'idm', 'mom_smoking' = 'SMOKE_ALL')
-  
+
 pregnancy_compli <- readsav('MATERNALCOMPLICATIONS_22112016.sav') %>%
   # Select and rename variables
   select(IDM, 'mom_preclampsia' = 'PE', # PE - definition Sarah Timmermans
@@ -106,12 +106,12 @@ pregnancy_compli <- readsav('MATERNALCOMPLICATIONS_22112016.sav') %>%
        'mom_hyperten_pregnancy' = 'PIH_v1') # Pregnancy Induced Hypertension
 
 gen <- Reduce(function(x,y) merge(x = x, y = y, by = 'IDM', all.x=T),
-                  list(gen, maternal_smoking, pregnancy_compli)) 
+                  list(gen, maternal_smoking, pregnancy_compli))
 
 # ------------------------------------------------------------------------------
 # Blood pressure data
 bp6 <- readsav('CHILDBLOODPRESSURE5_10022012.sav') %>%
-  select(IDC, 'age_bp' = 'ageChildYF5', 
+  select(IDC, 'age_bp' = 'ageChildYF5',
                  'SBP' = 'MeanSBP_ex1_5child', # Mean Systole  excl first measurement
                  'DBP' = 'MeanDBP_ex1_5child'  # Mean Diastole excl first measurement
          # ALSO: pulse and MAP
@@ -119,7 +119,7 @@ bp6 <- readsav('CHILDBLOODPRESSURE5_10022012.sav') %>%
   ) %>% rename_at(vars(-IDC), function(x) paste0(x, '_6y'))
 
 bp10 <- readsav('CHILDBLOODPRESSURE9_21042016.sav') %>%
-  select(IDC, 'age_bp' = 'agechild9_visit1', 
+  select(IDC, 'age_bp' = 'agechild9_visit1',
                  'SBP' = 'MEANSBP_ex1_child9', # Mean Systole  excl first measurement
                  'DBP' = 'MEANDBP_ex1_child9'  # Mean Diastole excl first measurement
          # ALSO: pulse and MAP
@@ -129,28 +129,28 @@ bp10 <- readsav('CHILDBLOODPRESSURE9_21042016.sav') %>%
 
 # BMI data
 bmi6 <- readsav('CHILDGROWTH5_10122014.sav') %>%
-  select(IDC, 'age_bmi' = 'agey5child', 
+  select(IDC, 'age_bmi' = 'agey5child',
                   'BMI' = 'BMI5child', # F@5 GROWTH - child: BMI
          # ALSO: The Netherlands 1997, BMI for age corrected 10-12-2014
-         # Height (cm and m), weight (kg), head circumference (cm) + sds for age 
+         # Height (cm and m), weight (kg), head circumference (cm) + sds for age
          # Add median age to variable names
   ) %>% rename_at(vars(-IDC), function(x) paste0(x, '_6y'))
 
 bmi10 <- readsav('CHILDGROWTH9_06072021.sav') %>%
-  select(IDC, 'age_bmi' = 'agechild9', 
+  select(IDC, 'age_bmi' = 'agechild9',
                   'BMI' = 'bmichild9', # F9 GROWTH - child: bmi
                'height' = 'heightchild9', # F9 GROWTH - child: height (cm)
          # ALSO: Netherlands, the 1997 (Netherlands, the) / Fredriks
-         # Weight (kg) + sds for age 
+         # Weight (kg) + sds for age
          # Add median age to variable names
   ) %>% rename_at(vars(-IDC), function(x) paste0(x, '_10y'))
 
 bmi13 <- readsav('CHILDGROWTH13_10122020.sav') %>%
-  select(IDC, 'age_bmi' = 'AGECHILD13', 
+  select(IDC, 'age_bmi' = 'AGECHILD13',
                   'BMI' = 'bmichild13', # BMI (kg/m2) child F@13
          # ALSO: Netherlands, the 1997 (Netherlands, the) / Fredriks
          #       Netherlands, the 2010 (Netherlands, the) / Talma
-         # Height, weight + sds for age 
+         # Height, weight + sds for age
          # Add median age to variable names
   ) %>% rename_at(vars(-IDC), function(x) paste0(x, '_13y'))
 
@@ -160,8 +160,10 @@ bmi13 <- readsav('CHILDGROWTH13_10122020.sav') %>%
 files <- list(gen, bp6, bmi6, bmi10, bp10, bmi13, hrt)
 
 dataset <- Reduce(function(x,y) merge(x = x, y = y, by = 'IDC', all.x=T),
-                  files) 
+                  files)
 rm(files)
+
+saveRDS(dataset, file.path(datapath, paste0('dataset_og_',as.character(Sys.Date()),'.rds')))
 
 # ==============================================================================
 # Inspect correlations 
@@ -241,12 +243,14 @@ rm(files)
 
 # IMPUTATION ===================================================================
 
+# dataset <- readRDS(list.files(path = datapath, pattern = 'dataset_og_', full.names = TRUE))
+
 # Use random forest for continuous data, logistic regression for binomial (sex) and polyreg for categorical(ethnicity, m_educ_6)
 # meth <- make.method(data, defaultMethod = c("rf", "logreg", "polyreg"))
 
 # Random forest imputation 
 start.time <- Sys.time()
-imp_rf <- mice(dataset, method = 'rf', m = 5, maxit = 5, ntree = 10) 
+imp_rf <- mice(dataset, method = 'rf', m = 20, maxit = 40, ntree = 10) 
 end.time <- Sys.time()
 
 time.taken <- round(end.time - start.time,2)
@@ -269,9 +273,11 @@ for (v in names(dataset)) { if (nrow(imp_rf$imp[[v]]) > 1) {
 dev.off()
 
 # ------------------------------------------------------------------------------
-# imp_rf <- readRDS(list.files(path = datapath, pattern = 'impset_og_'))
+# imp_rf <- readRDS(list.files(path = datapath, pattern = 'impset_og_', full.names = TRUE))
 
 # BSA-ADJUSTED Z-SCORES ========================================================
+
+invisible(lapply(c('gamlss','rms'), require, character.only = TRUE));
 
 # Based on Z-scoresonbsaPIANEW script, define:
 # 1. degrees of freedom for smoothing 
@@ -330,46 +336,3 @@ imp_bsaz <- as.mids(imp_bsaz)
 saveRDS(imp_bsaz, file.path(datapath, paste0('impset_bsaz_',as.character(Sys.Date()),'.rds')))
 
 # ==============================================================================
-# outcs <- c('LV_mass_bsaz',
-#            'LV_end_diastolic_vDV','ReDV','LEF','REF','LSV','RSV')
-# 
-# imp <- miceadds::subset_datlist(imp_rf, subset = imp_rf$data$IDC %in% inclusion)
-# imp <- miceadds::scale_datlist(imp, orig_var = c('pre_ELS','pos_ELS'), trafo_var = paste0(c('pre_ELS','pos_ELS'), '_z'))
-# imp <- miceadds::datlist2mids(imp)
-# # df <- data[complete.cases(data[ , c('pre_ELS', 'pos_ELS', outcs)]), ] 
-# 
-# # data$pre_ELS_z <- scale(data$pre_ELS)
-# # data$pos_ELS_z <- scale(data$pos_ELS)
-# 
-# fitit <- function(e,o) {
-#   fit <- with(imp, lm(as.formula(paste(o,'~',e,'+ sex + age'))))
-#   p <- mice::pool(fit)
-#   mod <- summary(p, 'all', conf.int = 0.95) # extract relevant information
-#   names(mod)[which(names(mod) %in% c('2.5 %','97.5 %'))] <- c('lci','uci')
-#   mod$rsq <- c(pool.r.squared(fit)[1], rep(NA, nrow(mod)-1)) # add a column for R2
-#   mod$rsq_adj <- c(pool.r.squared(fit, adjusted = T)[1], rep(NA, nrow(mod)-1)) # adjusted R2
-#   # Round everything
-#   mod[,-1] <-round(mod[,-1], 3)
-#   # add model name as first column
-#   mod_name <- paste(e,'-',o)
-#   mod <- cbind(data.frame("model" = rep(mod_name, nrow(mod))), mod)
-#   # And one space in between models
-#   mod[nrow(mod)+1,] <- NA
-#   
-#   # print(mod)
-#   return(mod)
-# }
-# 
-# par <- c('model','term','m','estimate','std.error','statistic','df','p.value','lci','uci',
-#          'riv','lambda','fmi','ubar','b','t','dfcom','rsq','rsq_adj')
-# mods <- data.frame(matrix(ncol = length(par), nrow = 0))
-# names(mods) <- par
-# 
-# for (out in outcs) { 
-#   pre <- fitit('pre_ELS_z', out) 
-#   pos <- fitit('pos_ELS_z', out)
-#   add <- fitit('pre_ELS_z + pos_ELS_z', out)
-#   mods <- rbind(mods, pre, pos, add)
-#   }
-# 
-# write.csv(mods, file.path(datapath,'result.csv'))
