@@ -84,7 +84,7 @@ gen <- readsav('CHILD-ALLGENERALDATA_15012024.sav') %>%
   select(IDC, IDM, MOTHER, # for sibling detection
          mom_education, dad_education, marital_status, household_income,
                   'sex' = 'GENDER', # Gender live birth corrected 10-12-2014
-            'ethnicity' = 'ETHNINFv2', # CBS ethnicity child update after focus@5
+            'ethnicity' = 'ETHNINFv3', # CBS ethnicity child update after focus@5 - Surinamese subdivided
               'mom_age' = 'AGE_M_v2', # Age mother at intake corrected 13-4-2016
 'mom_BMI_pre_pregnancy' = 'BMI_0', # bmi before pregnancy
                'parity' = 'PARITY',
@@ -188,65 +188,10 @@ saveRDS(dataset, file.path(datapath, paste0('dataset_og_',as.character(Sys.Date(
 
 # write.csv(tm, 'corrmat.csv', row.names = T)
 
-# Check selection and missing rate =============================================
-# chop <- function(dset, var, oper=`==`, value=NULL, 
-#                  mult=NULL, var2=NULL, oper2=NULL, value2=NULL) {
-#   # Print summaries for checking 
-#   cat(var,'\n'); if(var!='IDC') { print(summary(as.factor(dset[,var]))) }
-#   if (!is.null(var2)) { cat('\n',var2,'\n'); print(summary(as.factor(dset[,var2]))) }
-#   # Simple (one variable) selection condition
-#   # Note: as above, not all operations require a value argument (e.g. is.na)
-#   if (!is.null(value)) { cond <- oper(dset[,var], value) } else { cond <- oper(dset[,var]) }
-#   # Multiple selection conditions 
-#   if (!is.null(mult)) {
-#     if (!is.null(value2)) { cond2 <- oper2(dset[,var2], value2) } else { cond2 <- oper2(dset[,var2]) }
-#     cond <- mult(cond, cond2) # paste conditions together
-#   }
-#   dat = subset(dset, cond) 
-#   
-#   # Display log of selection
-#   nsel <- nrow(dat); loss <- nrow(dset) - nsel
-#   cat(nrow(dset),' - ', loss, ' = ', nsel, '\n\n')
-#   
-#   return(dat)
-# }
-# 
-# select_sibling <- function(dt, column_selection = c(), random = F, seed = 31081996, mother_id = 'm_ID', child_id = 'IDC') {
-#   # if no selection is specified, missingness in the entire dataframe is used
-#   if (length(column_selection) > 0) { dt <- dt[, c(child_id, mother_id, column_selection)] } 
-#   # First randomly shuffle the dataset 
-#   set.seed(seed)
-#   dt <- dt[sample(nrow(dt)),]
-#   # Get rid of empty NA values for mother
-#   dt <- dt[!is.na(dt[,mother_id]),]
-#   # Determine a list of children that have a sibling in the set
-#   if (random==T) { 
-#     sibling_ids <- dt[duplicated(dt[, mother_id]), child_id] # i.e.  which mother IDs recur more than once
-#   } else {
-#     dt$missing <- rowSums(is.na(dt)) # compute how many missing values in the columns of interest 
-#     dt_ord <- dt[order(dt$missing),] # order based on number of missing 
-#     sibling_ids <- dt_ord[duplicated(dt_ord[, mother_id]), child_id] # selection
-#   }
-#   # message(length(sibling_ids), ' siblings identified.')
-#   return(sibling_ids)
-# }
-# 
-# apply_selection <- function(set, start=data) {
-#   step <- chop(start, 'pre_percent_miss', `<`,50.0)
-#   step <- chop(step, 'post_percent_miss', `<`,50.0)
-#   step <- chop(step, 'twin',`==`,'No')
-# 
-#   return(outp)
-# }
-# 
-# inclusion = dat$IDC
-
 # IMPUTATION ===================================================================
 
-# dataset <- readRDS(list.files(path = datapath, pattern = 'dataset_og_', full.names = TRUE))
-
-# Use random forest for continuous data, logistic regression for binomial (sex) and polyreg for categorical(ethnicity, m_educ_6)
-# meth <- make.method(data, defaultMethod = c("rf", "logreg", "polyreg"))
+dsets <- list.files(path = datapath, pattern = 'dataset_og_', full.names = TRUE)
+dataset <- readRDS(dsets[length(dsets)])
 
 # Random forest imputation 
 start.time <- Sys.time()
