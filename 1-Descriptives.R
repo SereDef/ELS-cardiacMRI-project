@@ -5,11 +5,12 @@ invisible(lapply(c('dplyr','mice','miceadds'), require, character.only = TRUE));
 datapath <- '../Data'
 
 # Read in imputed datasets -----------------------------------------------------
-impset <- readRDS(list.files(path = datapath, pattern = 'impset_bsaz_', 
-                             full.names = TRUE))
+# Pick last (most recent) file
+impset <- readRDS(tail(list.files(path = datapath, pattern = 'impset_bsaz_', 
+                             full.names = TRUE),1))
 
-elsset <- readRDS(list.files(path = datapath, pattern = 'ELS_impset_', 
-                             full.names = TRUE))
+elsset <- readRDS(tail(list.files(path = datapath, pattern = 'ELS_impset_', 
+                             full.names = TRUE),1))
 
 pren_domains <- c('pre_life_events','pre_contextual_risk','pre_parental_risk','pre_interpersonal_risk')
 post_domains <- c('post_life_events','post_contextual_risk','post_parental_risk','post_interpersonal_risk','post_direct_victimization')
@@ -67,24 +68,46 @@ select_sibling <- function(dt, column_selection = c(), random = FALSE, seed = 31
 sibs_to_exclude <- ld_all %>% filter(.imp == 0) %>%  # original dataset 
   select_sibling()
 
+# 
 sample <- ld_all %>%
-  mutate(ethnicity_cat = relevel(factor(case_when(
-    ethnicity == 'Dutch' ~ 'Dutch',
-    ethnicity == 'European' ~ '(other) European',
-    ethnicity %in% c('Cape Verdian', 
-                      'Moroccan',
-                      'Turkish',
-                      'African') ~ 'Africa and Middle East', 
-     ethnicity %in% c('Dutch Antilles', 
-                      'Surinamese', 
-                      'American, non western') ~ 'Latin America', 
-     ethnicity %in% c('Indonesian',
-                      'Asian, western',
-                      'Asian, non western') ~ 'South/Central/East Asia', 
-     ethnicity %in% c('American,western', 
-                      'Oceanie') ~ 'North America or Oceania',
-     TRUE ~ NA
-                                   )), ref='Dutch')) %>%
+  # Refactor ethnicity 
+  mutate(
+    ethnicity_cat = relevel(factor(case_when(
+      ethnicity %in% c('Dutch','European') ~ 'European',
+      ethnicity == 'Turkish' ~ 'Turkish',
+      ethnicity == 'Moroccan' ~ 'Moroccan',
+      ethnicity == 'Dutch Antilles' ~ 'Dutch Antillean',
+      ethnicity == 'Surinamese-Hindustani' ~ 'Surinamese-Hindustani',
+      ethnicity == 'Surinamese-Creole' ~ 'Surinamese-Creole',
+      ethnicity == 'Cape Verdian' ~ 'Cape Verdian',
+      ethnicity %in% c('Asian, non western',
+                       'African',
+                       'American, non western',
+                       'Surinamese-Unspecified',
+                       'American,western',
+                       'Indonesian',
+                       'Oceanie',
+                       'Asian, western') ~ 'Other',
+      TRUE ~ NA
+      )), ref='European'),
+    
+    ethnicity_cat_better = relevel(factor(case_when(
+      ethnicity == 'Dutch' ~ 'Dutch',
+      ethnicity == 'European' ~ '(other) European',
+      ethnicity %in% c('Cape Verdian',
+                        'Moroccan',
+                        'Turkish',
+                        'African') ~ 'Africa and Middle East',
+       ethnicity %in% c('Dutch Antilles',
+                        'Surinamese',
+                        'American, non western') ~ 'Latin America',
+       ethnicity %in% c('Indonesian',
+                        'Asian, western',
+                        'Asian, non western') ~ 'South/Central/East Asia',
+       ethnicity %in% c('American,western',
+                        'Oceanie') ~ 'North America or Oceania',
+       TRUE ~ NA
+      )), ref='Dutch')) %>%
   
   # Remove more than 50% missing, twins and 1 of each sibling couple
   verbose_filter(pre_percent_missing < 50, 
@@ -99,8 +122,10 @@ els_scores <- c("prenatal_stress", "postnatal_stress", pren_domains, post_domain
 sample <- datlist2mids( scale_datlist( mids2datlist(sample), orig_var = els_scores, 
                                        trafo_var = paste0(els_scores, "_z")))
 
-# DESCIPTIVES ==================================================================
+# ==============================================================================
 ld <- complete(sample, action = 'long', include = FALSE) 
+
+# DESCIPTIVES ==================================================================
   
 cont_summ <- function(cont_vars) {
   summ <- ld %>% 
@@ -140,4 +165,14 @@ total_summ <- rbind(summ1,summ2)
 
 write.csv(total_summ, '../descriptives.csv')
 
+# Save sample ------------------------------------------------------------------
 saveRDS(sample, file.path(datapath, 'impset_sample.rds'))
+
+# For plotting -----------------------------
+datalist <- split(ld, as.factor(ld[,'.imp']))
+dir.create('../Data/df_by_imp')
+for (m in names(datalist)) { write.csv(datalist[[m]], paste0('../Data/df_by_imp/Data_imp',m,'.csv'))}
+
+write.csv(complete(sample, action=0), paste0('../Data/df_by_imp/Data_imp0.csv'))
+
+
