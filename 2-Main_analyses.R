@@ -31,7 +31,7 @@ fit_reg <- function(e, o, covs = '+ sex + age_mri_10y + ethnicity_cat', data = s
   mod$rsq_adj <- pool.r.squared(fit, adjusted = T)[1] # adjusted R2
   # Round everything
   mod[,-1] <-round(mod[,-1], 3)
-  mod$rsq[2] <- lin_test
+  # mod$rsq[2] <- lin_test
   # add model name as first column
   mod_name <- paste(e,'-',o)
   mod <- cbind(data.frame("model" = rep(mod_name, nrow(mod))), mod)
@@ -115,10 +115,10 @@ for (out in c(paste0(cardio_outcomes,'_bsaz'), paste0(cardio_outcomes,'_10y'))) 
     mods[[paste0(out,'_M1')]] <- rbind(pre, pos, add, pre_dom, pos_dom) 
 }
 
-openxlsx::write.xlsx(mods, file = file.path(datapath, paste0('../results.xlsx')),
+openxlsx::write.xlsx(mods, file = file.path(datapath, paste0('../Results/results.xlsx')),
                      overwrite = T)
 
-openxlsx::write.xlsx(meds, file = file.path(datapath, paste0('../results_cma.xlsx')),
+openxlsx::write.xlsx(meds, file = file.path(datapath, paste0('../Results/results_cma.xlsx')),
                      overwrite = T)
 
 # Add sex stratified models ====================================================
@@ -143,6 +143,71 @@ for (strata in c('boy','girl')) {
 }
   
 openxlsx::write.xlsx(sex_strata, 
-                     file = file.path(datapath, paste0('../results_sex_stratified.xlsx')),
+                     file = file.path(datapath, paste0('../Results/results_sex_stratified.xlsx')),
                      overwrite = T)
+# ==============================================================================
+# FDR correction
+# ==============================================================================
 
+res_path <- file.path(datapath, "..", "Results","results.xlsx")
+
+library(readxl)
+library(purrr)
+results <- map(set_names(excel_sheets(res_path)), read_excel, path = res_path)
+
+adjust_pvalues <- function(models, terms=c("prenatal_stress_z", "postnatal_stress_z"), 
+                           method="fdr"){
+  for (t in terms){
+    cat(t,'\n')
+    ps <- list()
+    for (m in models) {
+      restab <- data.frame(results[[m]])
+      ps[[paste(m,t)]] <- restab[grepl(t, restab$term), "p.value"]
+      
+    }
+    out <- data.frame(unlist(ps))
+    out[,'new_ps'] <- p.adjust(unlist(ps), method=method)
+    out[,'sign'] <- ifelse(out[,'new_ps'] < 0.05, "*", ifelse(out[,'new_ps'] < 0.06, "-",""))
+    
+    print(out)
+    
+    # Write this back to results
+    for (r in row.names(out)) {
+      which_model = stringr::str_split_i(r, " ", 1)
+      
+      which_terms = stringr::str_split_i(r, " ", 2)
+      which_term = substr(which_terms, 1, nchar(which_terms)-1)
+      
+      submodel_names = c(paste(which_term, "-"), "prenatal_stress_z + postnatal_stress_z -" )
+      which_submodel = submodel_names[as.integer(substr(which_terms, nchar(which_terms), nchar(which_terms)))]
+      
+      if (!"fdr_p" %in% names(results[[which_model]])) {
+        results[[which_model]]$fdr_p <<- NA
+      }
+      print(which_model)
+      print(which_term)
+      print(which_submodel)
+      
+      print(results[[which_model]]$fdr_p[(results[[which_model]]$term == which_term) & 
+                                     (grepl(which_submodel, results[[which_model]]$model)) ]) 
+      print(out[r, 'new_ps'])
+      results[[which_model]]$fdr_p[results[[which_model]]$term == which_term & 
+                                     grepl(which_submodel, results[[which_model]]$model) ] <<- out[r, 'new_ps']
+
+    }
+    #   restab <- data.frame(results[[m]])
+    #   ps[[paste(m,t)]] <- restab[grepl(t, restab$term), "p.value"]
+    #   
+    # }
+    results
+    
+  }
+}
+
+# adjust_pvalues(names(results)[grep("bsaz", names(results))])
+
+a = adjust_pvalues(names(results)[grep("volume_bsaz", names(results))])
+View(results$LV_end_diastolic_volume_bsaz_M0)
+
+adjust_pvalues(names(results)[grep("mass_bsaz", names(results))])
+adjust_pvalues(names(results)[grep("fraction_bsaz", names(results))])

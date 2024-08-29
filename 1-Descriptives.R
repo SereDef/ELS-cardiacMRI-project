@@ -157,13 +157,13 @@ summ1 <- cont_summ(c(paste0(cardio_outcomes,'_bsaz'),
                               'heart_rate_mri'),'_10y'), 'mom_BMI_pre_pregnancy',
                      els_scores, paste0(els_scores, '_z')))
 
-other <- c('sex','ethnicity_cat','ethnicity','mom_education','dad_education','household_income')
+other <- c('sex','ethnicity_cat','ethnicity','mom_smoking','mom_education','dad_education','household_income')
 
 summ2 <- do.call(rbind, lapply(other,cate_summ))
 
 total_summ <- rbind(summ1,summ2)
 
-write.csv(total_summ, '../descriptives.csv')
+write.csv(total_summ, '../Results/descriptives.csv')
 
 # Save sample ------------------------------------------------------------------
 saveRDS(sample, file.path(datapath, 'impset_sample.rds'))
