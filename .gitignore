@@ -1,2 +1,4 @@
 .DS_store
 .Rhistory
+.ipynb_checkpoints
+.ipynb_checkpoints/Figures-checkpoint.ipynb

@@ -149,16 +149,17 @@ openxlsx::write.xlsx(sex_strata,
 # FDR correction
 # ==============================================================================
 
-res_path <- file.path(datapath, "..", "Results","results.xlsx")
+res_path <- file.path("..", "Results","results.xlsx")
 
 library(readxl)
 library(purrr)
-results <- map(set_names(excel_sheets(res_path)), read_excel, path = res_path)
+results_raw <- map(set_names(excel_sheets(res_path)), read_excel, path = res_path)
 
 adjust_pvalues <- function(models, terms=c("prenatal_stress_z", "postnatal_stress_z"), 
-                           method="fdr"){
+                           method="fdr", results=results_raw){
+  
   for (t in terms){
-    cat(t,'\n')
+    # cat(t,'\n')
     ps <- list()
     for (m in models) {
       restab <- data.frame(results[[m]])
@@ -169,7 +170,7 @@ adjust_pvalues <- function(models, terms=c("prenatal_stress_z", "postnatal_stres
     out[,'new_ps'] <- p.adjust(unlist(ps), method=method)
     out[,'sign'] <- ifelse(out[,'new_ps'] < 0.05, "*", ifelse(out[,'new_ps'] < 0.06, "-",""))
     
-    print(out)
+    # print(out)
     
     # Write this back to results
     for (r in row.names(out)) {
@@ -180,34 +181,32 @@ adjust_pvalues <- function(models, terms=c("prenatal_stress_z", "postnatal_stres
       
       submodel_names = c(paste(which_term, "-"), "prenatal_stress_z + postnatal_stress_z -" )
       which_submodel = submodel_names[as.integer(substr(which_terms, nchar(which_terms), nchar(which_terms)))]
-      
+
       if (!"fdr_p" %in% names(results[[which_model]])) {
-        results[[which_model]]$fdr_p <<- NA
+        results[[which_model]]$fdr_p <- NA
       }
-      print(which_model)
-      print(which_term)
-      print(which_submodel)
       
-      print(results[[which_model]]$fdr_p[(results[[which_model]]$term == which_term) & 
-                                     (grepl(which_submodel, results[[which_model]]$model)) ]) 
-      print(out[r, 'new_ps'])
-      results[[which_model]]$fdr_p[results[[which_model]]$term == which_term & 
-                                     grepl(which_submodel, results[[which_model]]$model) ] <<- out[r, 'new_ps']
+      # print(results[[which_model]]$fdr_p[(results[[which_model]]$term == which_term) & 
+      #                                (grepl(which_submodel, results[[which_model]]$model)) ]) 
+      # print(out[r, 'new_ps'])
+      results[[which_model]]$fdr_p[(results[[which_model]]$term == which_term) & 
+                                   (startsWith(results[[which_model]]$model, which_submodel))] <- out[r, 'new_ps']
 
     }
-    #   restab <- data.frame(results[[m]])
-    #   ps[[paste(m,t)]] <- restab[grepl(t, restab$term), "p.value"]
-    #   
-    # }
-    results
     
   }
+  return(results)
 }
 
 # adjust_pvalues(names(results)[grep("bsaz", names(results))])
 
-a = adjust_pvalues(names(results)[grep("volume_bsaz", names(results))])
-View(results$LV_end_diastolic_volume_bsaz_M0)
+a1 = adjust_pvalues(names(results_raw)[grep("volume_bsaz", names(results_raw))])
 
-adjust_pvalues(names(results)[grep("mass_bsaz", names(results))])
-adjust_pvalues(names(results)[grep("fraction_bsaz", names(results))])
+a2 = adjust_pvalues(names(results_raw)[grep("mass_bsaz", names(results_raw))],
+                    results = a1)
+a3 = adjust_pvalues(names(results_raw)[grep("fraction_bsaz", names(results_raw))], 
+                    results = a2)
+
+openxlsx::write.xlsx(a3,
+                     file = '../Results/results_fdr.xlsx',
+                     overwrite = T)
